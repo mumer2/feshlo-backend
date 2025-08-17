@@ -1,9 +1,9 @@
-// netlify/functions/placeOrder.js
-import { MongoClient } from "mongodb";
+const { MongoClient } = require("mongodb");
 
-const client = new MongoClient(process.env.MONGO_URI);
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri);
 
-export async function handler(event) {
+exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -12,20 +12,13 @@ export async function handler(event) {
   }
 
   try {
-    const order = JSON.parse(event.body);
-
-    if (!order) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Invalid order data" }),
-      };
-    }
+    const data = JSON.parse(event.body);
 
     await client.connect();
-    const db = client.db("feshlo"); // ✅ your DB name
-    const collection = db.collection("orders"); // ✅ your collection
+    const db = client.db("feshlo"); // ✅ use your db
+    const collection = db.collection("orders");
 
-    const result = await collection.insertOne(order);
+    const result = await collection.insertOne(data);
 
     return {
       statusCode: 200,
@@ -34,11 +27,13 @@ export async function handler(event) {
         orderId: result.insertedId,
       }),
     };
-  } catch (err) {
-    console.error("❌ Backend error:", err);
+  } catch (error) {
+    console.error("PlaceOrder error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to place order", details: err.message }),
+      body: JSON.stringify({ error: error.message || "Failed to place order" }),
     };
+  } finally {
+    await client.close();
   }
-}
+};

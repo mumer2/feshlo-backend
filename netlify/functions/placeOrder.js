@@ -11,12 +11,17 @@ exports.handler = async (event) => {
     }
 
     const data = JSON.parse(event.body);
+    console.log("📦 Incoming order data:", data);
 
     const db = await connectToDB();
+    console.log("✅ Connected to DB");
+
     const result = await db.collection("orders").insertOne({
       ...data,
       createdAt: new Date(),
     });
+
+    console.log("✅ Order inserted:", result);
 
     return {
       statusCode: 200,
@@ -26,10 +31,10 @@ exports.handler = async (event) => {
       }),
     };
   } catch (err) {
-    console.error("❌ Error placing order:", err);
+    console.error("❌ Error placing order:", err.message, err.stack);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to place order" }),
+      body: JSON.stringify({ error: err.message }),
     };
   }
 };

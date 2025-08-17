@@ -1,21 +1,24 @@
-const { MongoClient } = require("mongodb");
+// netlify/functions/getOrders.js
+const { connectToDB } = require("../../db");
 
-const uri = process.env.MONGO_URI; // your MongoDB connection string
-const client = new MongoClient(uri);
+exports.handler = async (event) => {
+  if (event.httpMethod !== "GET") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
 
-exports.handler = async () => {
   try {
-    await client.connect();
-    const db = client.db("feshlo");
-    const orders = await db.collection("orders").find().sort({ createdAt: -1 }).toArray();
+    const db = await connectToDB();
+    const orders = await db.collection("orders").find({}).toArray();
 
     return {
       statusCode: 200,
       body: JSON.stringify(orders),
     };
-  } catch (err) {
-    return { statusCode: 500, body: err.toString() };
-  } finally {
-    await client.close();
+  } catch (error) {
+    console.error("❌ Error fetching orders:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Failed to fetch orders" }),
+    };
   }
 };

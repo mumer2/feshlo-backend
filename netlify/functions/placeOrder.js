@@ -1,33 +1,32 @@
-// netlify/functions/placeOrder.js
-const { connectToDB } = require("../../db");
+// netlify/functions/orders.js
+const { connectToDB } = require("./db");
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
-
   try {
-    const order = JSON.parse(event.body);
-
-    if (!order.name || !order.email || !order.items) {
+    if (event.httpMethod !== "POST") {
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing required fields" }),
+        statusCode: 405,
+        body: JSON.stringify({ error: "Method not allowed" }),
       };
     }
 
+    const data = JSON.parse(event.body);
+
     const db = await connectToDB();
     const result = await db.collection("orders").insertOne({
-      ...order,
+      ...data,
       createdAt: new Date(),
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Order placed successfully", id: result.insertedId }),
+      body: JSON.stringify({
+        message: "Order placed successfully",
+        orderId: result.insertedId,
+      }),
     };
-  } catch (error) {
-    console.error("❌ Error placing order:", error);
+  } catch (err) {
+    console.error("❌ Error placing order:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Failed to place order" }),

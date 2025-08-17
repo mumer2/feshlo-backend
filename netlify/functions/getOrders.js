@@ -1,5 +1,5 @@
 // netlify/functions/getOrders.js
-const { connectToDB } = require("../../db");
+const { connectToDB } = require("./db");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {

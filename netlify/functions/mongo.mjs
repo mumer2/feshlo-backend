@@ -1,18 +1,16 @@
-// netlify/functions/mongo.js
-const { MongoClient } = require("mongodb");
+// netlify/functions/mongo.mjs
+import { MongoClient } from "mongodb";
 
 let client;
 let db;
 
-const uri = process.env.MONGO_URI; // Netlify env variable
+const uri = process.env.MONGO_URI;
 
-async function connectToDB() {
+export async function connectToDB() {
   if (db) return { client, db };
 
   client = new MongoClient(uri);
   await client.connect();
-  db = client.db("feshlo"); // change DB name if needed
+  db = client.db("feshlo"); // your DB name
   return { client, db };
 }
-
-module.exports = { connectToDB };

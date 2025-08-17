@@ -1,20 +1,22 @@
-const { connectToDB } = require("./mongo.js");
+// netlify/functions/orders.mjs
+import { connectToDB } from "./mongo.mjs";
 
-exports.handler = async (event, context) => {
+export async function handler(event, context) {
   try {
     const { db } = await connectToDB();
-    const body = JSON.parse(event.body);
 
+    // Example: insert into "orders"
+    const body = JSON.parse(event.body);
     const result = await db.collection("orders").insertOne(body);
 
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true, insertedId: result.insertedId }),
     };
-  } catch (err) {
+  } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ success: false, error: error.message }),
     };
   }
-};
+}

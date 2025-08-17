@@ -1,28 +1,21 @@
 const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGO_URI; // store your Mongo URI in Netlify env variable
+const uri = process.env.MONGO_URI; // your MongoDB connection string
+const client = new MongoClient(uri);
 
-let cachedClient = null;
-
-async function connectDB() {
-  if (cachedClient) return cachedClient;
-  const client = new MongoClient(uri);
-  await client.connect();
-  cachedClient = client;
-  return client;
-}
-
-exports.handler = async function (event, context) {
+exports.handler = async () => {
   try {
-    const client = await connectDB();
+    await client.connect();
     const db = client.db("feshlo");
-    const orders = await db.collection("orders").find({}).toArray();
+    const orders = await db.collection("orders").find().sort({ createdAt: -1 }).toArray();
+
     return {
       statusCode: 200,
       body: JSON.stringify(orders),
     };
   } catch (err) {
-    console.error(err);
-    return { statusCode: 500, body: "Error fetching orders" };
+    return { statusCode: 500, body: err.toString() };
+  } finally {
+    await client.close();
   }
 };

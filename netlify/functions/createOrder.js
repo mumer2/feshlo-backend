@@ -1,50 +1,62 @@
+// netlify/functions/createOrder.js
 const { MongoClient } = require("mongodb");
 
-let client = null;
+const uri = process.env.MONGO_URI; // set in Netlify environment variables
+const client = new MongoClient(uri);
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
+  console.log("👉 Incoming request:", {
+    method: event.httpMethod,
+    body: event.body,
+  });
+
   if (event.httpMethod !== "POST") {
+    console.log("❌ Method not allowed:", event.httpMethod);
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: "Method Not Allowed" }),
+      body: JSON.stringify({ error: "Only POST method allowed" }),
     };
   }
 
   try {
-    const data = JSON.parse(event.body);
+    const data = JSON.parse(event.body || "{}");
 
-    if (!data || !data.cart || !data.total) {
+    // Validate input
+    if (!data.name || !data.items || !Array.isArray(data.items)) {
+      console.log("❌ Validation failed:", data);
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Invalid order data" }),
       };
     }
 
-    if (!client) {
-      client = new MongoClient(process.env.MONGO_URI);
-      await client.connect();
-    }
-
+    console.log("✅ Connecting to MongoDB...");
+    await client.connect();
     const db = client.db("feshlo");
-    const collection = db.collection("orders");
+    const orders = db.collection("orders");
 
-    const result = await collection.insertOne({
+    console.log("📦 Inserting order:", data);
+    const result = await orders.insertOne({
       ...data,
       createdAt: new Date(),
     });
+
+    console.log("✅ Order inserted with ID:", result.insertedId);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        orderId: result.insertedId,
+        id: result.insertedId,
       }),
     };
   } catch (err) {
-    console.error("Error placing order:", err);
+    console.error("❌ Error placing order:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to place order" }),
+      body: JSON.stringify({ error: "Failed to place order", details: err.message }),
     };
+  } finally {
+    await client.close();
   }
 };

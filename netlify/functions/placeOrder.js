@@ -1,40 +1,44 @@
-// netlify/functions/orders.js
-const { connectToDB } = require("./db");
+// netlify/functions/placeOrder.js
+import { MongoClient } from "mongodb";
 
-exports.handler = async (event) => {
+const client = new MongoClient(process.env.MONGO_URI);
+
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
+
   try {
-    if (event.httpMethod !== "POST") {
+    const order = JSON.parse(event.body);
+
+    if (!order) {
       return {
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method not allowed" }),
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid order data" }),
       };
     }
 
-    const data = JSON.parse(event.body);
-    console.log("📦 Incoming order data:", data);
+    await client.connect();
+    const db = client.db("feshlo"); // ✅ your DB name
+    const collection = db.collection("orders"); // ✅ your collection
 
-    const db = await connectToDB();
-    console.log("✅ Connected to DB");
-
-    const result = await db.collection("orders").insertOne({
-      ...data,
-      createdAt: new Date(),
-    });
-
-    console.log("✅ Order inserted:", result);
+    const result = await collection.insertOne(order);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Order placed successfully",
+        message: "✅ Order placed successfully",
         orderId: result.insertedId,
       }),
     };
   } catch (err) {
-    console.error("❌ Error placing order:", err.message, err.stack);
+    console.error("❌ Backend error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: "Failed to place order", details: err.message }),
     };
   }
-};
+}

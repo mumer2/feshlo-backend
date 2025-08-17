@@ -1,9 +1,8 @@
 const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGO_URI; // put this in Netlify environment variables
-const client = new MongoClient(uri);
+let client = null;
 
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -12,32 +11,40 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const orderData = JSON.parse(event.body);
+    const data = JSON.parse(event.body);
 
-    if (!orderData || Object.keys(orderData).length === 0) {
+    if (!data || !data.cart || !data.total) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Invalid order data" }),
       };
     }
 
-    await client.connect();
-    const db = client.db("feshlo");
-    const orders = db.collection("orders");
+    if (!client) {
+      client = new MongoClient(process.env.MONGO_URI);
+      await client.connect();
+    }
 
-    const result = await orders.insertOne(orderData);
+    const db = client.db("feshlo");
+    const collection = db.collection("orders");
+
+    const result = await collection.insertOne({
+      ...data,
+      createdAt: new Date(),
+    });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, id: result.insertedId }),
+      body: JSON.stringify({
+        success: true,
+        orderId: result.insertedId,
+      }),
     };
-  } catch (error) {
-    console.error("Error inserting order:", error);
+  } catch (err) {
+    console.error("Error placing order:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to insert order" }),
+      body: JSON.stringify({ error: "Failed to place order" }),
     };
-  } finally {
-    await client.close();
   }
 };

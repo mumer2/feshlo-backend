@@ -1,25 +1,25 @@
-import { connectToDB } from "./mongo";
+const { connectToDB } = require("./mongo");
 
-export async function handler(event, context) {
-  const { method } = event;
+exports.handler = async (event) => {
+  const { httpMethod } = event;
 
   const { db } = await connectToDB();
   const collection = db.collection("orders");
 
-  if (method === "POST") {
+  if (httpMethod === "POST") {
     try {
       const data = JSON.parse(event.body);
       const result = await collection.insertOne({ ...data, createdAt: new Date() });
       return {
         statusCode: 201,
-        body: JSON.stringify(result.ops[0]),
+        body: JSON.stringify(result),
       };
     } catch (err) {
       return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
     }
   }
 
-  if (method === "GET") {
+  if (httpMethod === "GET") {
     try {
       const orders = await collection.find().sort({ createdAt: -1 }).toArray();
       return {
@@ -32,4 +32,4 @@ export async function handler(event, context) {
   }
 
   return { statusCode: 405, body: "Method Not Allowed" };
-}
+};

@@ -1,15 +1,25 @@
-import { MongoClient } from "mongodb";
+const { MongoClient } = require("mongodb");
 
 let client;
 let db;
 
-const uri = process.env.MONGO_URI; // Set in Netlify environment variables
+const uri = process.env.MONGO_URI; // set in Netlify env vars
 
-export async function connectToDB() {
+async function connectToDB() {
   if (db) return { client, db };
 
-  client = new MongoClient(uri);
+  if (!uri) {
+    throw new Error("MONGO_URI is not set in environment variables.");
+  }
+
+  client = new MongoClient(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+
   await client.connect();
-  db = client.db("feshlo"); // your DB name
+  db = client.db("feshlo"); // database name
   return { client, db };
 }
+
+module.exports = { connectToDB };

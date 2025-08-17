@@ -1,4 +1,3 @@
-// netlify/functions/updateOrderStatus.js
 const { MongoClient, ObjectId } = require("mongodb");
 
 const client = new MongoClient(process.env.MONGO_URI);
@@ -10,7 +9,7 @@ exports.handler = async (event) => {
 
   try {
     await client.connect();
-    const db = client.db("feshlo");
+    const db = client.db("feshlo"); // make sure DB name matches
     const orders = db.collection("orders");
 
     const { orderId, status } = JSON.parse(event.body);

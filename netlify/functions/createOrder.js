@@ -1,7 +1,7 @@
 // netlify/functions/createOrder.js
 const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGODB_URI; // your MongoDB Atlas connection string
+const uri = process.env.MONGO_URI; // your MongoDB Atlas connection string
 const client = new MongoClient(uri);
 
 exports.handler = async (event) => {

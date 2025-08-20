@@ -16,7 +16,7 @@ exports.handler = async (event) => {
     }
 
     await client.connect();
-    const db = client.db("feshlo");          // replace with your DB name
+    const db = client.db("feshlo");      // replace with your DB name
     const collection = db.collection("reviews");
 
     const review = { name, comment, createdAt: new Date() };
@@ -24,6 +24,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...review, _id: result.insertedId }),
     };
   } catch (err) {

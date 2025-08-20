@@ -1,26 +1,33 @@
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
+
+const uri = process.env.MONGO_URI;
 
 exports.handler = async (event) => {
+  const client = new MongoClient(uri);
   try {
     const { name, review } = JSON.parse(event.body);
 
     if (!name || !review) return { statusCode: 400, body: "Invalid input" };
 
-    const filePath = path.join(__dirname, "reviews.json");
-    const data = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf-8") : "[]";
-    const reviews = JSON.parse(data);
+    await client.connect();
+    const db = client.db("feshlo");
+    const collection = db.collection("reviews");
 
-    const newReview = { id: Date.now(), name, review, date: new Date().toISOString() };
-    reviews.unshift(newReview); // Add to top
+    const newReview = {
+      name,
+      review,
+      date: new Date(),
+    };
 
-    fs.writeFileSync(filePath, JSON.stringify(reviews, null, 2));
+    const result = await collection.insertOne(newReview);
 
     return {
       statusCode: 200,
-      body: JSON.stringify(newReview),
+      body: JSON.stringify({ ...newReview, id: result.insertedId }),
     };
   } catch (err) {
     return { statusCode: 500, body: "Error submitting review" };
+  } finally {
+    await client.close();
   }
 };

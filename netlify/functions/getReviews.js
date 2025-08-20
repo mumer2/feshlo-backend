@@ -1,17 +1,23 @@
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
+
+const uri = process.env.MONGO_URI; // store your MongoDB URI in Netlify Environment Variables
 
 exports.handler = async () => {
+  const client = new MongoClient(uri);
   try {
-    const filePath = path.join(__dirname, "reviews.json");
-    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, JSON.stringify([]));
-    const data = fs.readFileSync(filePath, "utf-8");
-    const reviews = JSON.parse(data);
+    await client.connect();
+    const db = client.db("feshlo");
+    const collection = db.collection("reviews");
+
+    const reviews = await collection.find().sort({ date: -1 }).toArray();
+
     return {
       statusCode: 200,
       body: JSON.stringify(reviews),
     };
   } catch (err) {
     return { statusCode: 500, body: "Error fetching reviews" };
+  } finally {
+    await client.close();
   }
 };

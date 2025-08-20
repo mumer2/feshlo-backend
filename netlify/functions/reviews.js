@@ -1,32 +1,36 @@
-// netlify/functions/reviews.js
 const { MongoClient } = require("mongodb");
 
-exports.handler = async (event, context) => {
-  const client = new MongoClient(process.env.MONGO_URI);
-  await client.connect();
-  const db = client.db("feshlo");
-  const reviewsCollection = db.collection("reviews");
+const uri = process.env.MONGO_URI; // put in Netlify env vars
+const client = new MongoClient(uri);
+const dbName = "feshlo"; // change to your DB name
+const collectionName = "reviews";
 
-  if (event.httpMethod === "POST") {
-    const body = JSON.parse(event.body);
-    await reviewsCollection.insertOne({
-      name: body.name,
-      comment: body.comment,
-      createdAt: new Date(),
-    });
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "Review saved!" }),
-    };
+exports.handler = async (event) => {
+  try {
+    await client.connect();
+    const db = client.db(dbName);
+    const collection = db.collection(collectionName);
+
+    if (event.httpMethod === "POST") {
+      const { name, comment } = JSON.parse(event.body);
+      await collection.insertOne({ name, comment, createdAt: new Date() });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true }),
+      };
+    }
+
+    if (event.httpMethod === "GET") {
+      const reviews = await collection.find().sort({ createdAt: -1 }).toArray();
+      return {
+        statusCode: 200,
+        body: JSON.stringify(reviews),
+      };
+    }
+
+    return { statusCode: 405, body: "Method Not Allowed" };
+  } catch (error) {
+    console.error("❌ Review API Error:", error);
+    return { statusCode: 500, body: "Server Error" };
   }
-
-  if (event.httpMethod === "GET") {
-    const reviews = await reviewsCollection.find().sort({ createdAt: -1 }).toArray();
-    return {
-      statusCode: 200,
-      body: JSON.stringify(reviews),
-    };
-  }
-
-  return { statusCode: 405, body: "Method Not Allowed" };
 };

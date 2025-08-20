@@ -21,7 +21,7 @@ exports.handler = async (event) => {
 
     const result = await collection.insertOne(newReview);
 
-    // Return with id as string
+    // Return new review with id as string
     return {
       statusCode: 200,
       body: JSON.stringify({

@@ -21,11 +21,16 @@ exports.handler = async (event) => {
 
     const result = await collection.insertOne(newReview);
 
+    // Return with id as string
     return {
       statusCode: 200,
-      body: JSON.stringify({ ...newReview, id: result.insertedId }),
+      body: JSON.stringify({
+        id: result.insertedId.toString(),
+        ...newReview,
+      }),
     };
   } catch (err) {
+    console.error(err);
     return { statusCode: 500, body: "Error submitting review" };
   } finally {
     await client.close();

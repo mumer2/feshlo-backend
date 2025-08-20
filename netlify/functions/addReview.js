@@ -1,6 +1,6 @@
 const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGO_URI; // store in Netlify env variables
+const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
 
 exports.handler = async (event) => {
@@ -12,21 +12,23 @@ exports.handler = async (event) => {
     const { name, comment } = JSON.parse(event.body);
 
     if (!name || !comment) {
-      return { statusCode: 400, body: "Name and comment are required" };
+      return { statusCode: 400, body: "Name and comment required" };
     }
 
     await client.connect();
-    const db = client.db("feshlo");
+    const db = client.db("feshlo");          // replace with your DB name
     const collection = db.collection("reviews");
 
     const review = { name, comment, createdAt: new Date() };
-    await collection.insertOne(review);
+    const result = await collection.insertOne(review);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Review added", review }),
+      body: JSON.stringify({ ...review, _id: result.insertedId }),
     };
-  } catch (error) {
-    return { statusCode: 500, body: error.message };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+  } finally {
+    await client.close();
   }
 };

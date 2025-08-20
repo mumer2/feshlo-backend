@@ -1,27 +1,17 @@
-const { MongoClient } = require("mongodb");
-
-const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
+const fs = require("fs");
+const path = require("path");
 
 exports.handler = async () => {
   try {
-    await client.connect();
-    const db = client.db("feshlo");
-    const collection = db.collection("reviews");
-
-    const reviews = await collection
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
-
+    const filePath = path.join(__dirname, "reviews.json");
+    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, JSON.stringify([]));
+    const data = fs.readFileSync(filePath, "utf-8");
+    const reviews = JSON.parse(data);
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reviews),
     };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
-  } finally {
-    await client.close();
+    return { statusCode: 500, body: "Error fetching reviews" };
   }
 };

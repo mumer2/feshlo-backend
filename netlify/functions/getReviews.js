@@ -1,28 +1,31 @@
 const { MongoClient } = require("mongodb");
 
-const mongoUri = process.env.MONGO_URI;
-const client = new MongoClient(mongoUri);
+const uri = process.env.MONGO_URI;
 
 exports.handler = async () => {
+  const client = new MongoClient(uri);
   try {
     await client.connect();
     const db = client.db("feshlo");
     const collection = db.collection("reviews");
 
-    const reviews = await collection.find({}).sort({ createdAt: -1 }).toArray();
+    const reviews = await collection.find().sort({ date: -1 }).toArray();
+
+    // Convert _id to string so React can use it as key
+    const formattedReviews = reviews.map((r) => ({
+      id: r._id.toString(),
+      name: r.name,
+      review: r.review,
+      date: r.date,
+    }));
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reviews),
+      body: JSON.stringify(formattedReviews),
     };
-  } catch (error) {
-    console.error("Error fetching reviews:", error);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Failed to fetch reviews" }),
-    };
+  } catch (err) {
+    console.error(err);
+    return { statusCode: 500, body: "Error fetching reviews" };
   } finally {
     await client.close();
   }

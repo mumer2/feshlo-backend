@@ -1,30 +1,31 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient } = require("mongodb");
 
 const mongoUri = process.env.MONGO_URI;
 const client = new MongoClient(mongoUri);
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST' || !event.body) {
+  if (event.httpMethod !== "POST" || !event.body) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Bad Request: POST with body required.' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "POST request with body required" }),
     };
   }
 
   try {
-    const body = JSON.parse(event.body);
-    const { author, review } = body;
+    const { author, review } = JSON.parse(event.body);
 
     if (!author || !review) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing author or review.' }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing author or review" }),
       };
     }
 
     await client.connect();
-    const db = client.db('feshlo');
-    const collection = db.collection('reviews');
+    const db = client.db("feshlo");
+    const collection = db.collection("reviews");
 
     const newReview = {
       author,
@@ -36,23 +37,17 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Review submitted successfully!' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Review submitted successfully!" }),
     };
   } catch (error) {
-    console.error('Error submitting review:', error);
+    console.error("Error submitting review:", error);
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Failed to submit review.' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Failed to submit review" }),
     };
   } finally {
     await client.close();
   }
-};
-// Example submitReview.js
-return {
-  statusCode: 200,
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: "Review submitted successfully!" }),
 };

@@ -1,35 +1,42 @@
-const { MongoClient } = require("mongodb");
+const mongoose = require('mongoose');
 
-const uri = process.env.MONGO_URI;
+const mongoUri = process.env.MONGO_URI;
+
+const ReviewSchema = new mongoose.Schema({
+  review: String,
+  author: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+let Review;
+
+const connect = async () => {
+  if (!mongoose.connections[0].readyState) {
+    await mongoose.connect(mongoUri, {
+      dbName: 'feshlo',
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+  }
+  if (!Review) {
+    Review = mongoose.model('reviews', ReviewSchema);
+  }
+};
 
 exports.handler = async () => {
-  const client = new MongoClient(uri);
   try {
-    await client.connect();
-    const db = client.db("feshlo");
-    const collection = db.collection("reviews");
-
-    const reviews = await collection.find().sort({ date: -1 }).toArray();
-
-    // Convert _id to string for JSON
-    const formatted = reviews.map((r) => ({
-      id: r._id.toString(),
-      name: r.name,
-      review: r.review,
-      date: r.date,
-    }));
+    await connect();
+    const reviews = await Review.find().sort({ createdAt: -1 });
 
     return {
       statusCode: 200,
-      body: JSON.stringify(formatted),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      body: JSON.stringify(reviews)
     };
-  } catch (err) {
-    console.error(err);
-    return { statusCode: 500, body: "Error fetching reviews" };
-  } finally {
-    await client.close();
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Failed to fetch reviews' })
+    };
   }
 };

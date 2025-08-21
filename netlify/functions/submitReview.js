@@ -1,40 +1,52 @@
-const { MongoClient } = require("mongodb");
+const mongoose = require('mongoose');
 
-const uri = process.env.MONGO_URI;
+// MongoDB connection string from environment variables
+const mongoUri = process.env.MONGO_URI;
+
+// Define the Review schema and model
+const ReviewSchema = new mongoose.Schema({
+  review: String,
+  author: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+let Review;
+
+// Connect to MongoDB and define model if not already done
+const connect = async () => {
+  if (!mongoose.connections[0].readyState) {
+    await mongoose.connect(mongoUri, {
+      dbName: 'feshlo',
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+  }
+  if (!Review) {
+    Review = mongoose.model('reviews', ReviewSchema);
+  }
+};
 
 exports.handler = async (event) => {
-  const client = new MongoClient(uri);
   try {
-    const { name, review } = JSON.parse(event.body);
+    await connect();
+    const body = JSON.parse(event.body);
 
-    if (!name || !review) return { statusCode: 400, body: "Invalid input" };
+    const newReview = new Review({
+      review: body.review,
+      author: body.author
+    });
 
-    await client.connect();
-    const db = client.db("feshlo");
-    const collection = db.collection("reviews");
-
-    const newReview = {
-      name,
-      review,
-      date: new Date(),
-    };
-
-    const result = await collection.insertOne(newReview);
+    await newReview.save();
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        id: result.insertedId.toString(),
-        ...newReview,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      body: JSON.stringify({ message: "Review submitted successfully!" })
     };
-  } catch (err) {
-    console.error(err);
-    return { statusCode: 500, body: "Error submitting review" };
-  } finally {
-    await client.close();
+  } catch (error) {
+    console.error('Error submitting review:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Failed to submit review' })
+    };
   }
 };

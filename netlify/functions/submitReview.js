@@ -1,50 +1,51 @@
-const { MongoClient } = require("mongodb");
+// netlify/functions/submitReview.js
+import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGO_URI);
+const uri = process.env.MONGO_URI; // MongoDB connection string
+const client = new MongoClient(uri);
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "POST request required" }),
-    };
-  }
+export async function handler(event) {
+  if (event.httpMethod === "POST") {
+    try {
+      const { name, text } = JSON.parse(event.body);
+      await client.connect();
+      const db = client.db("feshlo");
+      const collection = db.collection("reviews");
 
-  try {
-    const { author, review } = JSON.parse(event.body || "{}");
+      const newReview = { name, text, date: new Date() };
+      const result = await collection.insertOne(newReview);
 
-    if (!author || !review) {
       return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Author and review required" }),
+        statusCode: 200,
+        body: JSON.stringify({ success: true, review: newReview }),
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ success: false, error: err.message }),
       };
     }
-
-    await client.connect();
-    const db = client.db("feshlo");
-    const collection = db.collection("reviews");
-
-    await collection.insertOne({
-      author,
-      review,
-      createdAt: new Date(),
-    });
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Review submitted successfully!" }),
-    };
-  } catch (err) {
-    console.error("Submit error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Failed to submit review" }),
-    };
-  } finally {
-    await client.close();
   }
-};
+
+  if (event.httpMethod === "GET") {
+    try {
+      await client.connect();
+      const db = client.db("feshlo");
+      const collection = db.collection("reviews");
+
+      const reviews = await collection.find().sort({ date: -1 }).toArray();
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(reviews),
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: err.message }),
+      };
+    }
+  }
+
+  return { statusCode: 405, body: "Method Not Allowed" };
+}

@@ -1,7 +1,6 @@
 const { MongoClient } = require("mongodb");
 
-const mongoUri = process.env.MONGO_URI;
-const client = new MongoClient(mongoUri);
+const client = new MongoClient(process.env.MONGO_URI);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -27,8 +26,11 @@ exports.handler = async (event) => {
     const db = client.db("feshlo");
     const collection = db.collection("reviews");
 
-    const newReview = { author, review, createdAt: new Date() };
-    await collection.insertOne(newReview);
+    await collection.insertOne({
+      author,
+      review,
+      createdAt: new Date(),
+    });
 
     return {
       statusCode: 200,

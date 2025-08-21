@@ -1,7 +1,6 @@
 const { MongoClient } = require("mongodb");
 
-const mongoUri = process.env.MONGO_URI;
-const client = new MongoClient(mongoUri);
+const client = new MongoClient(process.env.MONGO_URI);
 
 exports.handler = async () => {
   try {
@@ -16,8 +15,8 @@ exports.handler = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reviews),
     };
-  } catch (error) {
-    console.error("Error fetching reviews:", error);
+  } catch (err) {
+    console.error("Error fetching reviews:", err);
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json" },

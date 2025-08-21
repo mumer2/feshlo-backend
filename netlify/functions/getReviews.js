@@ -11,8 +11,8 @@ exports.handler = async () => {
 
     const reviews = await collection.find().sort({ date: -1 }).toArray();
 
-    // Convert _id to string so React can use it as key
-    const formattedReviews = reviews.map((r) => ({
+    // Convert _id to string for JSON
+    const formatted = reviews.map((r) => ({
       id: r._id.toString(),
       name: r.name,
       review: r.review,
@@ -21,7 +21,10 @@ exports.handler = async () => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify(formattedReviews),
+      body: JSON.stringify(formatted),
+      headers: {
+        "Content-Type": "application/json",
+      },
     };
   } catch (err) {
     console.error(err);

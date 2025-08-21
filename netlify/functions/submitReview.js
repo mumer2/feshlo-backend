@@ -21,13 +21,15 @@ exports.handler = async (event) => {
 
     const result = await collection.insertOne(newReview);
 
-    // Return new review with id as string
     return {
       statusCode: 200,
       body: JSON.stringify({
         id: result.insertedId.toString(),
         ...newReview,
       }),
+      headers: {
+        "Content-Type": "application/json",
+      },
     };
   } catch (err) {
     console.error(err);

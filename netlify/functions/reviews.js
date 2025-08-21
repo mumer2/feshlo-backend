@@ -1,35 +1,82 @@
-import { MongoClient } from "mongodb";
+// netlify/functions/reviews.js
+const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGO_URI;
+// Cached MongoClient to prevent multiple connections on Netlify
 let cachedClient = null;
 
-export async function handler(event) {
+exports.handler = async (event) => {
+  const FUNCTION_NAME = "Reviews Function";
+  console.log(`👉 ${FUNCTION_NAME} Incoming request:`, event);
+
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      },
+      body: JSON.stringify({ message: "CORS preflight OK" }),
+    };
+  }
+
   try {
-    // Connect to MongoDB only once
+    // Connect to MongoDB once per function invocation
     if (!cachedClient) {
-      cachedClient = new MongoClient(uri);
+      cachedClient = new MongoClient(process.env.MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
       await cachedClient.connect();
+      console.log("✅ MongoDB connected");
     }
+
     const db = cachedClient.db("feshlo");
     const collection = db.collection("reviews");
 
+    // Handle POST request (submit review)
     if (event.httpMethod === "POST") {
-      const { name, text } = JSON.parse(event.body);
+      const { name, text } = JSON.parse(event.body || "{}");
       if (!name || !text) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Missing fields" }) };
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ error: "Missing name or text" }),
+        };
       }
+
       const newReview = { name, text, date: new Date() };
       await collection.insertOne(newReview);
-      return { statusCode: 200, body: JSON.stringify({ success: true, review: newReview }) };
+
+      return {
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ success: true, review: newReview }),
+      };
     }
 
+    // Handle GET request (fetch reviews)
     if (event.httpMethod === "GET") {
       const reviews = await collection.find().sort({ date: -1 }).toArray();
-      return { statusCode: 200, body: JSON.stringify(reviews) };
+      return {
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify(reviews),
+      };
     }
 
-    return { statusCode: 405, body: "Method Not Allowed" };
-  } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    return {
+      statusCode: 405,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  } catch (err) {
+    console.error(`${FUNCTION_NAME} error:`, err);
+    return {
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Server error" }),
+    };
   }
-}
+};

@@ -1,38 +1,33 @@
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGO_URI; // Your MongoDB URI in Netlify environment
-const client = new MongoClient(uri);
+const uri = process.env.MONGO_URI;
+let client;
 
-exports.handler = async (event) => {
-  try {
-    await client.connect();
-    const db = client.db("feshlo"); // Replace with your DB name
-    const collection = db.collection("reviews");
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri);
+  global._mongoClientPromise = client.connect();
+}
 
-    if (event.httpMethod === "POST") {
-      // Add a new review
-      const { name, comment } = JSON.parse(event.body);
-      if (!name || !comment) {
-        return { statusCode: 400, body: "Name and comment required" };
-      }
-      const result = await collection.insertOne({ name, comment, createdAt: new Date() });
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...result.ops[0] }),
-      };
+export async function handler(event) {
+  const dbClient = await global._mongoClientPromise;
+  const db = dbClient.db("feshlo");
+  const collection = db.collection("reviews");
+
+  if (event.httpMethod === "POST") {
+    const { name, text } = JSON.parse(event.body);
+    if (!name || !text) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Missing fields" }) };
     }
 
-    // GET: fetch all reviews
-    const reviews = await collection.find({}).sort({ createdAt: -1 }).toArray();
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reviews),
-    };
-  } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
-  } finally {
-    await client.close();
+    const newReview = { name, text, date: new Date() };
+    await collection.insertOne(newReview);
+    return { statusCode: 200, body: JSON.stringify({ success: true, review: newReview }) };
   }
-};
+
+  if (event.httpMethod === "GET") {
+    const reviews = await collection.find().sort({ date: -1 }).toArray();
+    return { statusCode: 200, body: JSON.stringify(reviews) };
+  }
+
+  return { statusCode: 405, body: "Method Not Allowed" };
+}

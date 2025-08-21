@@ -1,9 +1,7 @@
 const mongoose = require('mongoose');
 
-// MongoDB connection string from environment variables
 const mongoUri = process.env.MONGO_URI;
 
-// Define the Review schema and model
 const ReviewSchema = new mongoose.Schema({
   review: String,
   author: String,
@@ -12,7 +10,6 @@ const ReviewSchema = new mongoose.Schema({
 
 let Review;
 
-// Connect to MongoDB and define model if not already done
 const connect = async () => {
   if (!mongoose.connections[0].readyState) {
     await mongoose.connect(mongoUri, {
@@ -28,8 +25,25 @@ const connect = async () => {
 
 exports.handler = async (event) => {
   try {
+    // Check if the event body is empty or null.
+    // This is the most critical fix for the JSON parsing error.
+    if (!event.body || event.httpMethod !== 'POST') {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Bad Request: A POST request with a body is required.' })
+      };
+    }
+
     await connect();
     const body = JSON.parse(event.body);
+
+    // Verify that the required fields are present in the parsed body.
+    if (!body.review || !body.author) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Bad Request: Missing review or author data.' })
+      };
+    }
 
     const newReview = new Review({
       review: body.review,

@@ -1,51 +1,36 @@
-// netlify/functions/submitReview.js
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGO_URI; // MongoDB connection string
+const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
 
 export async function handler(event) {
-  if (event.httpMethod === "POST") {
-    try {
+  try {
+    await client.connect();
+    const db = client.db("feshlo");
+    const collection = db.collection("reviews");
+
+    if (event.httpMethod === "POST") {
       const { name, text } = JSON.parse(event.body);
-      await client.connect();
-      const db = client.db("feshlo");
-      const collection = db.collection("reviews");
+
+      if (!name || !text) {
+        return { statusCode: 400, body: JSON.stringify({ error: "Missing fields" }) };
+      }
 
       const newReview = { name, text, date: new Date() };
-      const result = await collection.insertOne(newReview);
+      await collection.insertOne(newReview);
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ success: true, review: newReview }),
-      };
-    } catch (err) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ success: false, error: err.message }),
-      };
+      return { statusCode: 200, body: JSON.stringify({ success: true, review: newReview }) };
     }
-  }
 
-  if (event.httpMethod === "GET") {
-    try {
-      await client.connect();
-      const db = client.db("feshlo");
-      const collection = db.collection("reviews");
-
+    if (event.httpMethod === "GET") {
       const reviews = await collection.find().sort({ date: -1 }).toArray();
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(reviews),
-      };
-    } catch (err) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: err.message }),
-      };
+      return { statusCode: 200, body: JSON.stringify(reviews) };
     }
-  }
 
-  return { statusCode: 405, body: "Method Not Allowed" };
+    return { statusCode: 405, body: "Method Not Allowed" };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+  } finally {
+    await client.close();
+  }
 }

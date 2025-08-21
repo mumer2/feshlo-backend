@@ -50,3 +50,9 @@ exports.handler = async (event) => {
     await client.close();
   }
 };
+// Example submitReview.js
+return {
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message: "Review submitted successfully!" }),
+};

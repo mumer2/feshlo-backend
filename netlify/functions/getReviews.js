@@ -27,3 +27,9 @@ exports.handler = async () => {
     await client.close();
   }
 };
+// Example getReviews.js
+return {
+  statusCode: 200,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(reviews),
+};

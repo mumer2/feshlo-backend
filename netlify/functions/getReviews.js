@@ -13,13 +13,15 @@ exports.handler = async () => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify(reviews)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reviews),
     };
   } catch (error) {
     console.error('Error fetching reviews:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to fetch reviews' })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Failed to fetch reviews' }),
     };
   } finally {
     await client.close();

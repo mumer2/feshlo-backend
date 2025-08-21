@@ -1,32 +1,15 @@
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 
 const mongoUri = process.env.MONGO_URI;
-
-const ReviewSchema = new mongoose.Schema({
-  review: String,
-  author: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-let Review;
-
-const connect = async () => {
-  if (!mongoose.connections[0].readyState) {
-    await mongoose.connect(mongoUri, {
-      dbName: 'feshlo',
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-  }
-  if (!Review) {
-    Review = mongoose.model('reviews', ReviewSchema);
-  }
-};
+const client = new MongoClient(mongoUri);
 
 exports.handler = async () => {
   try {
-    await connect();
-    const reviews = await Review.find().sort({ createdAt: -1 });
+    await client.connect();
+    const db = client.db('feshlo');
+    const collection = db.collection('reviews');
+
+    const reviews = await collection.find({}).sort({ createdAt: -1 }).toArray();
 
     return {
       statusCode: 200,
@@ -38,5 +21,7 @@ exports.handler = async () => {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to fetch reviews' })
     };
+  } finally {
+    await client.close();
   }
 };

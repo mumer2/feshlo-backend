@@ -1,32 +1,10 @@
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 
 const mongoUri = process.env.MONGO_URI;
-
-const ReviewSchema = new mongoose.Schema({
-  review: String,
-  author: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-let Review;
-
-const connect = async () => {
-  if (!mongoose.connections[0].readyState) {
-    await mongoose.connect(mongoUri, {
-      dbName: 'feshlo',
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-  }
-  if (!Review) {
-    Review = mongoose.model('reviews', ReviewSchema);
-  }
-};
+const client = new MongoClient(mongoUri);
 
 exports.handler = async (event) => {
   try {
-    // Check if the event body is empty or null.
-    // This is the most critical fix for the JSON parsing error.
     if (!event.body || event.httpMethod !== 'POST') {
       return {
         statusCode: 400,
@@ -34,10 +12,12 @@ exports.handler = async (event) => {
       };
     }
 
-    await connect();
+    await client.connect();
+    const db = client.db('feshlo');
+    const collection = db.collection('reviews');
+
     const body = JSON.parse(event.body);
 
-    // Verify that the required fields are present in the parsed body.
     if (!body.review || !body.author) {
       return {
         statusCode: 400,
@@ -45,12 +25,13 @@ exports.handler = async (event) => {
       };
     }
 
-    const newReview = new Review({
+    const newReview = {
       review: body.review,
-      author: body.author
-    });
+      author: body.author,
+      createdAt: new Date(),
+    };
 
-    await newReview.save();
+    await collection.insertOne(newReview);
 
     return {
       statusCode: 200,
@@ -62,5 +43,7 @@ exports.handler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to submit review' })
     };
+  } finally {
+    await client.close();
   }
 };

@@ -1,47 +1,37 @@
 const { MongoClient } = require("mongodb");
 
-const mongoUri = process.env.MONGO_URI;
-const client = new MongoClient(mongoUri);
+const uri = process.env.MONGO_URI;
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "POST request required" }),
-    };
-  }
-
+  const client = new MongoClient(uri);
   try {
-    const { author, review } = JSON.parse(event.body || "{}");
+    const { name, review } = JSON.parse(event.body);
 
-    if (!author || !review) {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Author and review required" }),
-      };
-    }
+    if (!name || !review) return { statusCode: 400, body: "Invalid input" };
 
     await client.connect();
     const db = client.db("feshlo");
     const collection = db.collection("reviews");
 
-    const newReview = { author, review, createdAt: new Date() };
-    await collection.insertOne(newReview);
+    const newReview = {
+      name,
+      review,
+      date: new Date(),
+    };
 
+    const result = await collection.insertOne(newReview);
+
+    // Return new review with id as string
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Review submitted successfully!" }),
+      body: JSON.stringify({
+        id: result.insertedId.toString(),
+        ...newReview,
+      }),
     };
   } catch (err) {
-    console.error("Submit error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Failed to submit review" }),
-    };
+    console.error(err);
+    return { statusCode: 500, body: "Error submitting review" };
   } finally {
     await client.close();
   }

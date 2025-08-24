@@ -1,12 +1,14 @@
 // netlify/functions/reviews.js
 const { MongoClient } = require("mongodb");
 
+// Cached MongoClient to prevent multiple connections on Netlify
 let cachedClient = null;
 
 exports.handler = async (event) => {
   const FUNCTION_NAME = "Reviews Function";
-  console.log(`👉 ${FUNCTION_NAME} Incoming request:`, event);
+  console.log(`👉 ${FUNCTION_NAME} Incoming request:`, event.httpMethod);
 
+  // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -20,6 +22,7 @@ exports.handler = async (event) => {
   }
 
   try {
+    // Connect to MongoDB once per function invocation
     if (!cachedClient) {
       cachedClient = new MongoClient(process.env.MONGO_URI, {
         useNewUrlParser: true,
@@ -32,7 +35,7 @@ exports.handler = async (event) => {
     const db = cachedClient.db("feshlo");
     const collection = db.collection("reviews");
 
-    // ➤ POST: Add a review with rating
+    // ------------------ POST (Submit Review) ------------------
     if (event.httpMethod === "POST") {
       const { name, text, rating } = JSON.parse(event.body || "{}");
 
@@ -44,60 +47,54 @@ exports.handler = async (event) => {
         };
       }
 
-      const newReview = { name, text, rating: Number(rating), date: new Date() };
+      const numericRating = Number(rating);
+      if (isNaN(numericRating) || numericRating < 1 || numericRating > 5) {
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ error: "Rating must be a number between 1 and 5" }),
+        };
+      }
+
+      const newReview = { 
+        name, 
+        text, 
+        rating: numericRating, 
+        date: new Date() 
+      };
       await collection.insertOne(newReview);
-
-      // Recalculate average rating
-      const stats = await collection
-        .aggregate([
-          {
-            $group: {
-              _id: null,
-              avgRating: { $avg: "$rating" },
-              total: { $sum: 1 },
-            },
-          },
-        ])
-        .toArray();
-
-      const summary = stats.length
-        ? { averageRating: stats[0].avgRating, totalReviews: stats[0].total }
-        : { averageRating: 0, totalReviews: 0 };
 
       return {
         statusCode: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ success: true, review: newReview, summary }),
+        body: JSON.stringify({ success: true, review: newReview }),
       };
     }
 
-    // ➤ GET: Fetch reviews + rating summary
+    // ------------------ GET (Fetch Reviews + Summary) ------------------
     if (event.httpMethod === "GET") {
       const reviews = await collection.find().sort({ date: -1 }).toArray();
 
-      const stats = await collection
-        .aggregate([
-          {
-            $group: {
-              _id: null,
-              avgRating: { $avg: "$rating" },
-              total: { $sum: 1 },
-            },
-          },
-        ])
-        .toArray();
+      // Calculate rating summary
+      let avgRating = 0;
+      if (reviews.length > 0) {
+        const total = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+        avgRating = (total / reviews.length).toFixed(1);
+      }
 
-      const summary = stats.length
-        ? { averageRating: stats[0].avgRating, totalReviews: stats[0].total }
-        : { averageRating: 0, totalReviews: 0 };
+      const summary = {
+        average: avgRating,
+        totalReviews: reviews.length,
+      };
 
       return {
         statusCode: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ reviews, summary }),
+        body: JSON.stringify({ summary, reviews }),
       };
     }
 
+    // ------------------ Invalid Method ------------------
     return {
       statusCode: 405,
       headers: { "Access-Control-Allow-Origin": "*" },
@@ -108,10 +105,11 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: "Server error" }),
+      body: JSON.stringify({ error: "Server error", details: err.message }),
     };
   }
 };
+
 
 
 

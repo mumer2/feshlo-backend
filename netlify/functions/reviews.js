@@ -38,6 +38,7 @@ exports.handler = async (event) => {
     // Handle POST request (submit review)
     if (event.httpMethod === "POST") {
       const { name, text, rating } = JSON.parse(event.body || "{}");
+
       if (!name || !text || !rating) {
         return {
           statusCode: 400,
@@ -52,6 +53,7 @@ exports.handler = async (event) => {
         rating: Number(rating), 
         date: new Date() 
       };
+
       await collection.insertOne(newReview);
 
       return {

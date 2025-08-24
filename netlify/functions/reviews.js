@@ -1,7 +1,6 @@
 // netlify/functions/reviews.js
 const { MongoClient } = require("mongodb");
 
-// Cached MongoClient to prevent multiple connections on Netlify
 let cachedClient = null;
 
 exports.handler = async (event) => {
@@ -22,7 +21,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Connect to MongoDB once per function invocation
     if (!cachedClient) {
       cachedClient = new MongoClient(process.env.MONGO_URI, {
         useNewUrlParser: true,
@@ -35,7 +33,7 @@ exports.handler = async (event) => {
     const db = cachedClient.db("feshlo");
     const collection = db.collection("reviews");
 
-    // Handle POST request (submit review)
+    // POST = add review
     if (event.httpMethod === "POST") {
       const { name, text, rating } = JSON.parse(event.body || "{}");
 
@@ -53,7 +51,6 @@ exports.handler = async (event) => {
         rating: Number(rating), 
         date: new Date() 
       };
-
       await collection.insertOne(newReview);
 
       return {
@@ -63,16 +60,16 @@ exports.handler = async (event) => {
       };
     }
 
-    // Handle GET request (fetch reviews + rating summary)
+    // GET = fetch reviews + rating summary
     if (event.httpMethod === "GET") {
       const reviews = await collection.find().sort({ date: -1 }).toArray();
 
-      // Calculate average rating & count
-      let avgRating = 0;
-      if (reviews.length > 0) {
-        const total = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
-        avgRating = total / reviews.length;
-      }
+      // Compute rating summary
+      const totalReviews = reviews.length;
+      const avgRating =
+        totalReviews > 0
+          ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
+          : 0;
 
       return {
         statusCode: 200,
@@ -80,8 +77,8 @@ exports.handler = async (event) => {
         body: JSON.stringify({
           reviews,
           summary: {
-            averageRating: Number(avgRating.toFixed(1)),
-            totalReviews: reviews.length,
+            average: avgRating.toFixed(1),
+            count: totalReviews,
           },
         }),
       };

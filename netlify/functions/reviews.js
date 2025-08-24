@@ -1,14 +1,12 @@
 // netlify/functions/reviews.js
 const { MongoClient } = require("mongodb");
 
-// Cached MongoClient to prevent multiple connections on Netlify
 let cachedClient = null;
 
 exports.handler = async (event) => {
   const FUNCTION_NAME = "Reviews Function";
   console.log(`👉 ${FUNCTION_NAME} Incoming request:`, event);
 
-  // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -22,7 +20,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Connect to MongoDB once per function invocation
     if (!cachedClient) {
       cachedClient = new MongoClient(process.env.MONGO_URI, {
         useNewUrlParser: true,
@@ -35,10 +32,11 @@ exports.handler = async (event) => {
     const db = cachedClient.db("feshlo");
     const collection = db.collection("reviews");
 
-    // Handle POST request (submit review)
+    // ➤ POST: Add a review with rating
     if (event.httpMethod === "POST") {
       const { name, text, rating } = JSON.parse(event.body || "{}");
-      if (!name || !text || typeof rating !== "number") {
+
+      if (!name || !text || !rating) {
         return {
           statusCode: 400,
           headers: { "Access-Control-Allow-Origin": "*" },
@@ -46,42 +44,57 @@ exports.handler = async (event) => {
         };
       }
 
-      const newReview = { 
-        name, 
-        text, 
-        rating, 
-        date: new Date() 
-      };
-
+      const newReview = { name, text, rating: Number(rating), date: new Date() };
       await collection.insertOne(newReview);
+
+      // Recalculate average rating
+      const stats = await collection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              avgRating: { $avg: "$rating" },
+              total: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray();
+
+      const summary = stats.length
+        ? { averageRating: stats[0].avgRating, totalReviews: stats[0].total }
+        : { averageRating: 0, totalReviews: 0 };
 
       return {
         statusCode: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ success: true, review: newReview }),
+        body: JSON.stringify({ success: true, review: newReview, summary }),
       };
     }
 
-    // Handle GET request (fetch reviews + summary)
+    // ➤ GET: Fetch reviews + rating summary
     if (event.httpMethod === "GET") {
       const reviews = await collection.find().sort({ date: -1 }).toArray();
 
-      // Calculate summary
-      const totalReviews = reviews.length;
-      const average =
-        totalReviews > 0
-          ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
-          : 0;
+      const stats = await collection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              avgRating: { $avg: "$rating" },
+              total: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray();
 
-      const summary = {
-        average: Number(average.toFixed(1)),
-        totalReviews,
-      };
+      const summary = stats.length
+        ? { averageRating: stats[0].avgRating, totalReviews: stats[0].total }
+        : { averageRating: 0, totalReviews: 0 };
 
       return {
         statusCode: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ summary, reviews }),
+        body: JSON.stringify({ reviews, summary }),
       };
     }
 

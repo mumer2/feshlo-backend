@@ -87,6 +87,38 @@ exports.handler = async (event) => {
       };
     }
 
+
+    // ------------------ DELETE (remove review) ------------------
+if (event.httpMethod === "DELETE") {
+  const { id, all } = event.queryStringParameters;
+
+  if (all === "true") {
+    await collection.deleteMany({});
+    return {
+      statusCode: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ success: true, message: "All reviews deleted" }),
+    };
+  }
+
+  if (!id) {
+    return {
+      statusCode: 400,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Missing review id" }),
+    };
+  }
+
+  await collection.deleteOne({ _id: new require("mongodb").ObjectId(id) });
+
+  return {
+    statusCode: 200,
+    headers: { "Access-Control-Allow-Origin": "*" },
+    body: JSON.stringify({ success: true, message: "Review deleted" }),
+  };
+}
+
+
     // ------------------ INVALID METHOD ------------------
     return {
       statusCode: 405,

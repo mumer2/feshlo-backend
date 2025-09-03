@@ -32,11 +32,11 @@ exports.handler = async (event) => {
     if (event.httpMethod === "POST") {
       const { productId, name, text, rating } = JSON.parse(event.body || "{}");
 
-      if (!productId || !name || !text || !rating) {
+      if (!name || !text || !rating) {
         return {
           statusCode: 400,
           headers: { "Access-Control-Allow-Origin": "*" },
-          body: JSON.stringify({ error: "Missing productId, name, text, or rating" }),
+          body: JSON.stringify({ error: "Missing name, text, or rating" }),
         };
       }
 
@@ -50,7 +50,7 @@ exports.handler = async (event) => {
       }
 
       const newReview = {
-        productId, // 🔥 store productId
+        productId: productId || null, // 🔥 store productId if available
         name,
         text,
         rating: numericRating,
@@ -68,18 +68,15 @@ exports.handler = async (event) => {
 
     // ------------------ GET (fetch reviews) ------------------
     if (event.httpMethod === "GET") {
-      const productId = event.queryStringParameters.productId;
+      const productId = event.queryStringParameters?.productId;
 
-      if (!productId) {
-        return {
-          statusCode: 400,
-          headers: { "Access-Control-Allow-Origin": "*" },
-          body: JSON.stringify({ error: "Missing productId in query" }),
-        };
+      let query = {};
+      if (productId) {
+        query = { productId }; // only that product’s reviews
       }
 
       const reviews = await collection
-        .find({ productId }) // 🔥 filter by productId
+        .find(query)
         .sort({ date: -1 })
         .toArray();
 
@@ -104,6 +101,7 @@ exports.handler = async (event) => {
     };
   }
 };
+
 
 
 
@@ -191,87 +189,3 @@ exports.handler = async (event) => {
 // };
 
 
-
-
-// // netlify/functions/reviews.js
-// const { MongoClient } = require("mongodb");
-
-// // Cached MongoClient to prevent multiple connections on Netlify
-// let cachedClient = null;
-
-// exports.handler = async (event) => {
-//   const FUNCTION_NAME = "Reviews Function";
-//   console.log(`👉 ${FUNCTION_NAME} Incoming request:`, event);
-
-//   // Handle CORS preflight
-//   if (event.httpMethod === "OPTIONS") {
-//     return {
-//       statusCode: 200,
-//       headers: {
-//         "Access-Control-Allow-Origin": "*",
-//         "Access-Control-Allow-Headers": "Content-Type",
-//         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-//       },
-//       body: JSON.stringify({ message: "CORS preflight OK" }),
-//     };
-//   }
-
-//   try {
-//     // Connect to MongoDB once per function invocation
-//     if (!cachedClient) {
-//       cachedClient = new MongoClient(process.env.MONGO_URI, {
-//         useNewUrlParser: true,
-//         useUnifiedTopology: true,
-//       });
-//       await cachedClient.connect();
-//       console.log("✅ MongoDB connected");
-//     }
-
-//     const db = cachedClient.db("feshlo");
-//     const collection = db.collection("reviews");
-
-//     // Handle POST request (submit review)
-//     if (event.httpMethod === "POST") {
-//       const { name, text } = JSON.parse(event.body || "{}");
-//       if (!name || !text) {
-//         return {
-//           statusCode: 400,
-//           headers: { "Access-Control-Allow-Origin": "*" },
-//           body: JSON.stringify({ error: "Missing name or text" }),
-//         };
-//       }
-
-//       const newReview = { name, text, date: new Date() };
-//       await collection.insertOne(newReview);
-
-//       return {
-//         statusCode: 200,
-//         headers: { "Access-Control-Allow-Origin": "*" },
-//         body: JSON.stringify({ success: true, review: newReview }),
-//       };
-//     }
-
-//     // Handle GET request (fetch reviews)
-//     if (event.httpMethod === "GET") {
-//       const reviews = await collection.find().sort({ date: -1 }).toArray();
-//       return {
-//         statusCode: 200,
-//         headers: { "Access-Control-Allow-Origin": "*" },
-//         body: JSON.stringify(reviews),
-//       };
-//     }
-
-//     return {
-//       statusCode: 405,
-//       headers: { "Access-Control-Allow-Origin": "*" },
-//       body: JSON.stringify({ error: "Method not allowed" }),
-//     };
-//   } catch (err) {
-//     console.error(`${FUNCTION_NAME} error:`, err);
-//     return {
-//       statusCode: 500,
-//       headers: { "Access-Control-Allow-Origin": "*" },
-//       body: JSON.stringify({ error: "Server error" }),
-//     };
-//   }
-// };

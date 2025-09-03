@@ -1,5 +1,5 @@
 // netlify/functions/reviews.js
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 
 let cachedClient = null;
 
@@ -10,7 +10,7 @@ exports.handler = async (event) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
       },
       body: "OK",
     };
@@ -50,7 +50,7 @@ exports.handler = async (event) => {
       }
 
       const newReview = {
-        productId: productId || null, // 🔥 store productId if available
+        productId: productId || null,
         name,
         text,
         rating: numericRating,
@@ -72,13 +72,10 @@ exports.handler = async (event) => {
 
       let query = {};
       if (productId) {
-        query = { productId }; // only that product’s reviews
+        query = { productId };
       }
 
-      const reviews = await collection
-        .find(query)
-        .sort({ date: -1 })
-        .toArray();
+      const reviews = await collection.find(query).sort({ date: -1 }).toArray();
 
       return {
         statusCode: 200,
@@ -87,37 +84,35 @@ exports.handler = async (event) => {
       };
     }
 
+    // ------------------ DELETE (single or all reviews) ------------------
+    if (event.httpMethod === "DELETE") {
+      const { id, all } = event.queryStringParameters || {};
 
-    // ------------------ DELETE (remove review) ------------------
-if (event.httpMethod === "DELETE") {
-  const { id, all } = event.queryStringParameters;
+      if (all === "true") {
+        await collection.deleteMany({});
+        return {
+          statusCode: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ success: true, message: "All reviews deleted" }),
+        };
+      }
 
-  if (all === "true") {
-    await collection.deleteMany({});
-    return {
-      statusCode: 200,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ success: true, message: "All reviews deleted" }),
-    };
-  }
+      if (!id) {
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ error: "Missing review id" }),
+        };
+      }
 
-  if (!id) {
-    return {
-      statusCode: 400,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: "Missing review id" }),
-    };
-  }
+      await collection.deleteOne({ _id: new ObjectId(id) });
 
-  await collection.deleteOne({ _id: new require("mongodb").ObjectId(id) });
-
-  return {
-    statusCode: 200,
-    headers: { "Access-Control-Allow-Origin": "*" },
-    body: JSON.stringify({ success: true, message: "Review deleted" }),
-  };
-}
-
+      return {
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ success: true, message: "Review deleted" }),
+      };
+    }
 
     // ------------------ INVALID METHOD ------------------
     return {
@@ -126,6 +121,7 @@ if (event.httpMethod === "DELETE") {
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   } catch (err) {
+    console.error("Error in reviews function:", err);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },

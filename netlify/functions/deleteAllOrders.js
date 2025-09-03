@@ -1,47 +1,52 @@
 // netlify/functions/deleteAllOrders.js
 const { MongoClient } = require("mongodb");
 
-let cachedDb = null;
+let cachedClient = null;
 
-async function connectToDatabase(uri) {
-  if (cachedDb) return cachedDb;
-
-  const client = new MongoClient(uri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-
-  await client.connect();
-  cachedDb = client.db("feshlo"); // ✅ replace with your DB name
-  return cachedDb;
-}
+const headers = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+  "Content-Type": "application/json",
+};
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
+  // Preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+  }
+
+  if (!["POST", "DELETE"].includes(event.httpMethod)) {
     return {
       statusCode: 405,
+      headers,
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
   try {
-    const db = await connectToDatabase(process.env.MONGO_URI);
+    if (!cachedClient) {
+      cachedClient = new MongoClient(process.env.MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
+      await cachedClient.connect();
+    }
+
+    const db = cachedClient.db("feshlo");
     const collection = db.collection("orders");
 
-    const result = await collection.deleteMany({}); // ✅ remove all orders
-
+    const result = await collection.deleteMany({});
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: "All orders deleted successfully",
-        deletedCount: result.deletedCount,
-      }),
+      headers,
+      body: JSON.stringify({ success: true, deletedCount: result.deletedCount }),
     };
-  } catch (error) {
-    console.error("Error deleting all orders:", error);
+  } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to delete all orders" }),
+      headers,
+      body: JSON.stringify({ success: false, error: err.message }),
     };
   }
 };
